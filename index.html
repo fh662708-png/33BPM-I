@@ -1,4 +1,9 @@
 <!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Painel 33º BPM/I</title>
+
+<!-- FIREBASE SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+
 <style>
 :root{--bg:#0b0d12;--c:#141821;--b:#232937;--t:#e8ecf3;--m:#8b94a7;--o:#f59e0b;--r:#ef4444;--g:#22c55e;--bl:#38a0e8}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font:14px system-ui,Segoe UI,sans-serif}
@@ -43,7 +48,64 @@ tr.cl{cursor:pointer}tr.cl:hover{background:#181d28}.mono{font-family:ui-monospa
 <div id="app" style="display:none"></div><div id="modal" onclick="if(event.target==this)closeM()"></div>
 <script>
 const $=s=>document.querySelector(s),e=s=>String(s??'').replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
-const DB={g:(k,d)=>{try{return JSON.parse(localStorage.getItem('p33:'+k))??d}catch(x){return d}},s:(k,v)=>localStorage.setItem('p33:'+k,JSON.stringify(v))};
+
+// INÍCIO DA CONFIGURAÇÃO DO FIREBASE
+const firebaseConfig = {
+  apiKey: "AIzaSyDFI1UY5QWeRvEH6kIP7tKWjv9FrUOPm_E",
+  authDomain: "bpm-i-bcded.firebaseapp.com",
+  databaseURL: "https://bpm-i-bcded-default-rtdb.firebaseio.com",
+  projectId: "bpm-i-bcded",
+  storageBucket: "bpm-i-bcded.firebasestorage.app",
+  messagingSenderId: "495863746799",
+  appId: "1:495863746799:web:d227a9fcbf239f6df3cb1a"
+};
+
+let db = null;
+let firebaseAtivo = false;
+
+try {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+    firebaseAtivo = true;
+} catch (e) {
+    console.warn("Erro ao iniciar Firebase. Rodando apenas localmente.", e);
+}
+
+// NOVO OBJETO DB: Salva no localStorage e envia pro Firebase
+const DB = {
+    g: (k, d) => {
+        try { return JSON.parse(localStorage.getItem('p33:' + k)) ?? d } catch (x) { return d }
+    },
+    s: (k, v) => {
+        localStorage.setItem('p33:' + k, JSON.stringify(v));
+        if (firebaseAtivo && db) {
+            db.ref('painel33/' + k).set(v).catch(() => {});
+        }
+    }
+};
+
+// SINCRONIZAÇÃO EM TEMPO REAL: Escuta a nuvem e atualiza a tela
+if (firebaseAtivo) {
+    db.ref('painel33').on('value', snap => {
+        const dados = snap.val();
+        if (dados) {
+            Object.keys(dados).forEach(k => {
+                localStorage.setItem('p33:' + k, JSON.stringify(dados[k]));
+            });
+            // Se o usuário estiver logado, atualiza a tela
+            if (window.U) {
+                if (U.master) {
+                    master();
+                } else if (S.tab) {
+                    R();
+                }
+            }
+        }
+    });
+}
+// FIM DA CONFIGURAÇÃO DO FIREBASE
+
+
 const LOGO=document.querySelector('.lb img').src;const MASTER='master33'; // TROQUE a senha master aqui
 const hs=s=>{let a=3735928559,b=1103547991;for(let i=0;i<s.length;i++){let c=s.charCodeAt(i);a=Math.imul(a^c,2654435761);b=Math.imul(b^c,1597334677)}a=Math.imul(a^a>>>16,2246822507)^Math.imul(b^b>>>13,3266489909);return(a>>>0).toString(36)+s.length};
 const CIAS=['1ª Cia','2ª Cia','3ª Cia','4ª Cia','FT'],ACT=['Delegada','Dejem','Serviço Operacional','CFP','Outra'],today=()=>new Date(Date.now()-new Date().getTimezoneOffset()*6e4).toISOString().slice(0,10);
